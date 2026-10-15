@@ -1170,7 +1170,8 @@ async function enterGame(raw) {
   GAME = data.code || code;
   QUESTIONS = data.rooms;
   gate.hidden = true;
-  history.replaceState(null, "", `/?code=${encodeURIComponent(GAME)}`);
+  const folder = location.pathname.replace(/[^/]*$/, "");
+  history.replaceState(null, "", `${folder}?code=${encodeURIComponent(GAME)}`);
   bootGame();
 }
 
