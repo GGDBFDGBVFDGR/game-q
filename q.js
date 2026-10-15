@@ -1,5 +1,6 @@
 let QUESTIONS = ROOMS;
 let GAME = "";
+let LINK = (new URLSearchParams(location.search).get("room") || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
 const ROOM = 108;
 const GAP = 40;
 const HALL = 56;
@@ -1107,8 +1108,9 @@ function drawQr(id, text) {
 function paintControllerQr() {
   if (!hostOrigin || qrReady) return;
   qrReady = true;
-  drawQr("qr-1", `${hostOrigin}/control.html?team=1&game=${encodeURIComponent(GAME)}`);
-  drawQr("qr-2", `${hostOrigin}/control.html?team=2&game=${encodeURIComponent(GAME)}`);
+  const room = LINK ? `&room=${encodeURIComponent(LINK)}` : "";
+  drawQr("qr-1", `${hostOrigin}/control.html?team=1&game=${encodeURIComponent(GAME)}${room}`);
+  drawQr("qr-2", `${hostOrigin}/control.html?team=2&game=${encodeURIComponent(GAME)}${room}`);
 }
 
 async function pollPads() {
@@ -1170,8 +1172,9 @@ async function enterGame(raw) {
   GAME = data.code || code;
   QUESTIONS = data.rooms;
   gate.hidden = true;
+  if (!LINK) LINK = Math.random().toString(36).slice(2, 8);
   const folder = location.pathname.replace(/[^/]*$/, "");
-  history.replaceState(null, "", `${folder}?code=${encodeURIComponent(GAME)}`);
+  history.replaceState(null, "", `${folder}?code=${encodeURIComponent(GAME)}&room=${encodeURIComponent(LINK)}`);
   bootGame();
 }
 

@@ -89,6 +89,193 @@
     return location.origin + folder.replace(/\/$/, "");
   }
 
+  function roomId() {
+    const raw = new URLSearchParams(location.search).get("room") || "main";
+    return raw.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "main";
+  }
+
+  function encodeRem(n) {
+    const out = [];
+    do {
+      let digit = n % 128;
+      n = Math.floor(n / 128);
+      if (n > 0) digit |= 128;
+      out.push(digit);
+    } while (n > 0);
+    return out;
+  }
+
+  function utf8(text) {
+    return new TextEncoder().encode(text);
+  }
+
+  function pack(parts) {
+    const size = parts.reduce((sum, part) => sum + part.length, 0);
+    const out = new Uint8Array(size);
+    let offset = 0;
+    parts.forEach((part) => {
+      out.set(part, offset);
+      offset += part.length;
+    });
+    return out;
+  }
+
+  function mqttString(text) {
+    const body = utf8(text);
+    return pack([new Uint8Array([(body.length >> 8) & 255, body.length & 255]), body]);
+  }
+
+  function mqttPacket(type, body) {
+    return pack([new Uint8Array([type, ...encodeRem(body.length)]), body]);
+  }
+
+  const relayRuns = {};
+  let socket = null;
+  let relayReady = false;
+  const relayWaiters = [];
+  const subscriptions = new Set();
+
+  function relayKey(code) {
+    return `${code}/${roomId()}`;
+  }
+
+  function relayRun(code) {
+    const key = relayKey(code);
+    if (!relayRuns[key]) relayRuns[key] = blankRun();
+    connectRelay();
+    subscribeRelay(key);
+    return relayRuns[key];
+  }
+
+  function connectRelay() {
+    if (socket && (socket.readyState === 0 || socket.readyState === 1)) return;
+    socket = new WebSocket("wss://broker.hivemq.com:8884/mqtt", ["mqtt"]);
+    socket.binaryType = "arraybuffer";
+    relayReady = false;
+    socket.onopen = () => {
+      const flags = new Uint8Array([0, 4, 77, 81, 84, 84, 4, 2, 0, 30]);
+      const id = mqttString(`q${Math.random().toString(16).slice(2, 12)}`);
+      socket.send(mqttPacket(0x10, pack([flags, id])));
+    };
+    socket.onmessage = (event) => {
+      const bytes = new Uint8Array(event.data);
+      if (bytes[0] === 0x20) {
+        relayReady = bytes[3] === 0;
+        subscriptions.clear();
+        Object.keys(relayRuns).forEach(subscribeRelay);
+        relayWaiters.splice(0).forEach((done) => done());
+        return;
+      }
+      if ((bytes[0] >> 4) !== 3) return;
+      const head = readRem(bytes, 1);
+      if (!head) return;
+      const topicLen = (bytes[head.next] << 8) | bytes[head.next + 1];
+      const topicStart = head.next + 2;
+      const topic = new TextDecoder().decode(bytes.slice(topicStart, topicStart + topicLen));
+      const payload = new TextDecoder().decode(bytes.slice(topicStart + topicLen, head.next + head.value));
+      applyRelay(topic, payload);
+    };
+    socket.onclose = () => {
+      relayReady = false;
+      socket = null;
+      window.setTimeout(connectRelay, 1500);
+    };
+  }
+
+  function readRem(bytes, start) {
+    let value = 0;
+    let mul = 1;
+    let index = start;
+    let encoded = 0;
+    do {
+      if (index >= bytes.length) return null;
+      encoded = bytes[index];
+      index += 1;
+      value += (encoded & 127) * mul;
+      mul *= 128;
+    } while (encoded & 128);
+    return { value, next: index };
+  }
+
+  function subscribeRelay(key) {
+    const filter = `qgame/${key}/#`;
+    if (subscriptions.has(filter) || !relayReady || !socket) return;
+    subscriptions.add(filter);
+    const id = 1;
+    socket.send(mqttPacket(0x82, pack([new Uint8Array([(id >> 8) & 255, id & 255]), mqttString(filter), new Uint8Array([0])])));
+  }
+
+  function publishRelay(code, tail, value, retain) {
+    const topic = `qgame/${relayKey(code)}/${tail}`;
+    const body = pack([mqttString(topic), utf8(JSON.stringify(value))]);
+    const packet = mqttPacket(retain ? 0x31 : 0x30, body);
+    const send = () => {
+      if (socket && relayReady) socket.send(packet);
+    };
+    if (socket && relayReady) send();
+    else {
+      connectRelay();
+      relayWaiters.push(send);
+    }
+  }
+
+  function applyRelay(topic, payload) {
+    const parts = topic.split("/");
+    if (parts[0] !== "qgame" || parts.length < 4) return;
+    const key = `${parts[1]}/${parts[2]}`;
+    const run = relayRuns[key] || blankRun();
+    relayRuns[key] = run;
+    const kind = parts[3];
+    let data = {};
+    try {
+      data = JSON.parse(payload);
+    } catch (error) {
+      return;
+    }
+    if (kind === "reset") {
+      if (run.mark && data.at && data.at < run.mark) return;
+      const fresh = blankRun();
+      run.pads = fresh.pads;
+      run.question = fresh.question;
+      run.answers = [];
+      run.shops = [];
+      return;
+    }
+    if (kind === "question" && data && typeof data === "object") {
+      run.mark = Date.now();
+      run.question = data;
+      return;
+    }
+    if (kind === "pad") {
+      const team = parts[4];
+      if (!run.pads[team]) return;
+      ["up", "down", "left", "right"].forEach((dir) => {
+        run.pads[team][dir] = Boolean(data[dir]);
+      });
+      run.pads[team].seen = Date.now();
+      return;
+    }
+    if (kind === "answer" && data && !run.answers.some((item) => item.id === data.id)) {
+      run.answers.push(data);
+      run.answers = run.answers.slice(-20);
+      return;
+    }
+    if (kind === "shop" && data && !run.shops.some((item) => item.id === data.id)) {
+      run.shops.push(data);
+      run.shops = run.shops.slice(-20);
+    }
+  }
+
+  let relayStamp = 0;
+  function relayId() {
+    relayStamp = Math.max(relayStamp + 1, Date.now());
+    return relayStamp;
+  }
+
+  window.setInterval(() => {
+    if (socket && relayReady) socket.send(new Uint8Array([0xc0, 0]));
+  }, 20000);
+
   function reply(body, status) {
     return new Response(JSON.stringify(body), {
       status: status || 200,
@@ -142,7 +329,6 @@
       }
     }
     const games = read(GAMES);
-    const runs = read(RUNS);
     const path = url.pathname;
     const queryCode = clean(url.searchParams.get("code") || url.searchParams.get("game"));
 
@@ -162,7 +348,7 @@
     }
     if (method === "GET" && path === "/api/pad") {
       if (!games[queryCode]) return reply({ ok: false, error: "Нет такого кода" }, 404);
-      const run = runs[queryCode] || blankRun();
+      const run = relayRun(queryCode);
       return reply({
         origin: siteOrigin(),
         pads: { 1: padView(run.pads[1]), 2: padView(run.pads[2]) },
@@ -171,8 +357,8 @@
       });
     }
     if (method === "GET" && path === "/api/question") {
-      if (!games[queryCode]) return reply({ ok: false, error: "Нет такого кода" }, 404);
-      const run = runs[queryCode] || blankRun();
+      if (!queryCode) return reply({ ok: false, error: "Нет такого кода" }, 404);
+      const run = relayRun(queryCode);
       const team = url.searchParams.get("team") === "2" ? "2" : "1";
       return reply(run.question[team]);
     }
@@ -206,19 +392,27 @@
     }
 
     const code = clean(data.game || data.code || queryCode);
-    if (!games[code]) return reply({ ok: false, error: "Нет такого кода" }, 404);
-    const run = runs[code] || blankRun();
+    if (!code) return reply({ ok: false, error: "Нет такого кода" }, 404);
+    if ((path === "/api/reset" || path === "/api/question") && !games[code]) {
+      return reply({ ok: false, error: "Нет такого кода" }, 404);
+    }
+    const run = relayRun(code);
     if (method === "POST" && path === "/api/reset") {
-      runs[code] = blankRun();
-      write(RUNS, runs);
+      const fresh = blankRun();
+      run.pads = fresh.pads;
+      run.question = fresh.question;
+      run.answers = [];
+      run.shops = [];
+      publishRelay(code, "reset", { at: Date.now() }, false);
       return reply({ ok: true });
     }
     if (method === "POST" && path === "/api/question") {
       const teams = data.teams && typeof data.teams === "object" ? data.teams : { 1: data, 2: data };
+      const next = { 1: run.question[1], 2: run.question[2] };
       ["1", "2"].forEach((key) => {
         const item = teams[key];
         if (!item || typeof item !== "object") return;
-        run.question[key] = {
+        next[key] = {
           quiz: item.quiz,
           title: String(item.title || ""),
           prompt: String(item.prompt || ""),
@@ -229,39 +423,39 @@
           revealOk: Boolean(item.revealOk),
         };
       });
-      runs[code] = run;
-      write(RUNS, runs);
+      run.question = next;
+      run.mark = Date.now();
+      publishRelay(code, "question", next, true);
       return reply({ ok: true });
     }
     if (method === "POST" && path === "/api/answer") {
       const team = String(data.team || "");
       if (!run.pads[team] || typeof data.quiz !== "number" || typeof data.index !== "number") return reply({ ok: false }, 400);
-      run.answerSeq += 1;
-      run.answers.push({ id: run.answerSeq, team, quiz: data.quiz, index: data.index });
+      const item = { id: relayId(), team, quiz: data.quiz, index: data.index };
+      run.answers.push(item);
       run.answers = run.answers.slice(-20);
-      runs[code] = run;
-      write(RUNS, runs);
+      publishRelay(code, "answer", item, false);
       return reply({ ok: true });
     }
     if (method === "POST" && path === "/api/shop") {
       const team = String(data.team || "");
       if (!run.pads[team] || (data.action !== "cut" && data.action !== "reveal")) return reply({ ok: false }, 400);
-      run.shopSeq += 1;
-      run.shops.push({ id: run.shopSeq, team, action: data.action });
+      const item = { id: relayId(), team, action: data.action };
+      run.shops.push(item);
       run.shops = run.shops.slice(-20);
-      runs[code] = run;
-      write(RUNS, runs);
+      publishRelay(code, "shop", item, false);
       return reply({ ok: true });
     }
     if (method === "POST" && path === "/api/pad") {
       const team = String(data.team || "");
       if (!run.pads[team]) return reply({ ok: false }, 400);
+      const pad = { up: false, down: false, left: false, right: false };
       ["up", "down", "left", "right"].forEach((key) => {
-        run.pads[team][key] = Boolean(data[key]);
+        pad[key] = Boolean(data[key]);
+        run.pads[team][key] = pad[key];
       });
       run.pads[team].seen = Date.now();
-      runs[code] = run;
-      write(RUNS, runs);
+      publishRelay(code, `pad/${team}`, pad, true);
       return reply({ ok: true });
     }
     return reply({ ok: false }, 404);
