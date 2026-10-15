@@ -96,18 +96,29 @@
     });
   }
 
+  function bank(name) {
+    try {
+      const value = (0, eval)(`typeof ${name} === "undefined" ? null : ${name}`);
+      return Array.isArray(value) ? value : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function seed() {
     const games = read(GAMES);
     let changed = false;
-    if (!games.QSTART && Array.isArray(window.ROOMS)) {
-      const rooms = normalize(window.ROOMS);
+    const starter = bank("ROOMS");
+    const security = bank("SECURITY");
+    if (!games.QSTART && starter) {
+      const rooms = normalize(starter);
       if (rooms) {
         games.QSTART = { rooms };
         changed = true;
       }
     }
-    if (!games.RQHJQ5 && Array.isArray(window.SECURITY)) {
-      const rooms = normalize(window.SECURITY);
+    if (!games.RQHJQ5 && security) {
+      const rooms = normalize(security);
       if (rooms) {
         games.RQHJQ5 = { rooms };
         changed = true;
