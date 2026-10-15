@@ -1,0 +1,215 @@
+:root {
+  --mint: #5eead4;
+  --amber: #f5c16c;
+  --pad: 72px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  gap: 8px;
+  height: 100dvh;
+  padding: max(10px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: #070b10;
+  color: #d7e4ea;
+  font-family: "IBM Plex Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  user-select: none;
+}
+
+body.team-2 {
+  background: #120e08;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.team {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.12em;
+}
+
+.team-1 .team {
+  color: var(--mint);
+}
+
+.team-2 .team {
+  color: var(--amber);
+}
+
+.prompt {
+  margin: 0;
+  max-height: 4.4em;
+  overflow: auto;
+  font-size: 15px;
+  line-height: 1.35;
+  touch-action: pan-y;
+}
+
+.choices {
+  display: grid;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 0;
+}
+
+.choices button {
+  min-height: 44px;
+  padding: 8px 10px;
+  overflow: hidden;
+  text-align: left;
+  color: #d7e4ea;
+  background: #10161c;
+  border: 1px solid rgba(94, 234, 212, 0.45);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.team-2 .choices button {
+  border-color: rgba(245, 193, 108, 0.55);
+}
+
+.choices button:disabled,
+.shop button:disabled {
+  opacity: 0.4;
+}
+
+.shop {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+}
+
+.shop-label {
+  margin: 0;
+  color: var(--amber);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.shop button {
+  min-height: 42px;
+  padding: 8px 6px;
+  color: var(--amber);
+  background: #1a140c;
+  border: 1px solid rgba(245, 193, 108, 0.55);
+  font: inherit;
+  font-size: 13px;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: var(--pad) var(--pad);
+  grid-template-areas:
+    "up up"
+    "left right"
+    "down down";
+  gap: 8px;
+  justify-content: center;
+}
+
+.dpad button {
+  height: var(--pad);
+  border: 1px solid rgba(94, 234, 212, 0.45);
+  background: #10161c;
+  color: #d7e4ea;
+  font: inherit;
+  font-size: 32px;
+  touch-action: none;
+}
+
+.dpad button[data-dir="up"] {
+  grid-area: up;
+}
+
+.dpad button[data-dir="down"] {
+  grid-area: down;
+}
+
+.dpad button[data-dir="left"] {
+  grid-area: left;
+}
+
+.dpad button[data-dir="right"] {
+  grid-area: right;
+}
+
+.team-2 .dpad button {
+  border-color: rgba(245, 193, 108, 0.55);
+}
+
+.dpad button.is-held {
+  background: #14332e;
+  color: var(--mint);
+}
+
+.team-2 .dpad button.is-held {
+  background: #3a2a10;
+  color: var(--amber);
+}
+
+.link {
+  margin: 0;
+  color: #7f93a0;
+  font-size: 12px;
+  text-align: center;
+}
+
+.lang-switch {
+  display: flex;
+  gap: 6px;
+}
+
+.lang-switch button {
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  background: transparent;
+  color: #7f93a0;
+  font: inherit;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+}
+
+.lang-switch button.is-on {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+@media (max-height: 700px) {
+  :root {
+    --pad: 58px;
+  }
+
+  body {
+    gap: 6px;
+  }
+
+  .prompt {
+    font-size: 14px;
+    max-height: 2.8em;
+  }
+
+  .choices button,
+  .shop button {
+    min-height: 36px;
+    font-size: 13px;
+  }
+}

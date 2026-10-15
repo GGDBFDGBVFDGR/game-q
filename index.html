@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Q — лабиринт</title>
+    <link rel="stylesheet" href="style.css?v=21" />
+  </head>
+  <body data-title-key="titleGame">
+    <form class="gate" id="gate">
+      <section class="editor-card">
+        <div class="lang-switch" role="group">
+          <button type="button" data-lang="ru">РУС</button>
+          <button type="button" data-lang="kk">ҚАЗ</button>
+        </div>
+        <p class="room-kicker" data-i18n="gateKicker">КОД ЛАБИРИНТА</p>
+        <h2 data-i18n="gateTitle">Чтобы играть, введите код</h2>
+        <p class="note" data-i18n="gateLead">Код появляется после сохранения, когда человек собирает свой лабиринт.</p>
+        <label>
+          <span data-i18n="codeLabel">Код</span>
+          <input id="game-code" autocomplete="off" maxlength="6" required />
+        </label>
+        <button type="submit" data-i18n="play">Играть</button>
+        <p class="note" id="gate-note"></p>
+        <a class="enter-link" href="edit.html" data-i18n="buildOwn">Собрать свой</a>
+      </section>
+    </form>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Q</span>
+        <div>
+          <p class="brand-kicker">DATACENTER · 15 СЕКТОРОВ</p>
+          <h1>Лабиринт Q</h1>
+        </div>
+      </div>
+      <div class="meters">
+        <p class="status" id="purse">ГАЙКИ 0</p>
+        <p class="status" id="key-label">КЛЮЧИ 0</p>
+        <p class="status" id="progress">1 0/15 · 2 0/15</p>
+        <p class="status" id="status">01</p>
+        <a class="enter-link" href="edit.html" data-i18n="ownMaze">Свой лабиринт</a>
+        <div class="lang-switch" role="group">
+          <button type="button" data-lang="ru">РУС</button>
+          <button type="button" data-lang="kk">ҚАЗ</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="maze-wrap" id="maze-wrap">
+        <p class="crash" id="crash" hidden>СБОЙ · Q СЛОМАН</p>
+        <p class="dance" id="dance" hidden>Q ТАНЦУЕТ</p>
+        <div class="maze-scale" id="maze-scale">
+          <div class="maze" id="maze">
+            <div class="robot" id="robot" aria-label="Робот Q">
+              <div class="sprite" id="sprite">
+                <div class="body">
+                  <svg viewBox="0 0 180 260" role="img">
+                    <defs>
+                      <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#3a4658" />
+                        <stop offset="55%" stop-color="#1c2633" />
+                        <stop offset="100%" stop-color="#10161e" />
+                      </linearGradient>
+                      <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#07352c" />
+                        <stop offset="100%" stop-color="#02110e" />
+                      </linearGradient>
+                      <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+                        <feGaussianBlur stdDeviation="2.2" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                    </defs>
+                    <g class="antenna">
+                      <line x1="90" y1="28" x2="90" y2="46" />
+                      <circle class="antenna-light" cx="90" cy="20" r="7" />
+                    </g>
+                    <g class="head">
+                      <rect x="42" y="46" width="96" height="78" rx="16" />
+                      <rect class="face" x="54" y="58" width="72" height="52" rx="8" />
+                      <g class="eyes" filter="url(#glow)">
+                        <rect class="eye" x="68" y="74" width="14" height="8" rx="2" />
+                        <rect class="eye" x="98" y="74" width="14" height="8" rx="2" />
+                      </g>
+                      <g class="face-q">
+                        <circle cx="90" cy="86" r="7" />
+                        <line x1="94" y1="91" x2="99" y2="97" />
+                      </g>
+                      <g class="crash-x">
+                        <line x1="60" y1="66" x2="120" y2="104" />
+                        <line x1="120" y1="66" x2="60" y2="104" />
+                      </g>
+                    </g>
+                    <g class="torso">
+                      <rect class="neck" x="78" y="116" width="24" height="24" rx="4" />
+                      <rect x="50" y="132" width="80" height="72" rx="12" />
+                      <g class="chest-q">
+                        <circle cx="90" cy="166" r="13" />
+                        <line x1="98" y1="175" x2="108" y2="186" />
+                      </g>
+                      <g class="leds">
+                        <circle cx="68" cy="190" r="3" />
+                        <circle cx="80" cy="190" r="3" />
+                        <circle cx="92" cy="190" r="3" />
+                      </g>
+                    </g>
+                    <g class="arm arm-l">
+                      <rect x="24" y="138" width="22" height="58" rx="10" />
+                      <rect class="hand" x="26" y="190" width="18" height="14" rx="6" />
+                    </g>
+                    <g class="arm arm-r">
+                      <rect x="134" y="138" width="22" height="58" rx="10" />
+                      <rect class="hand" x="136" y="190" width="18" height="14" rx="6" />
+                    </g>
+                    <g class="leg leg-l">
+                      <rect x="62" y="204" width="20" height="36" rx="8" />
+                      <rect class="foot" x="54" y="234" width="32" height="10" rx="4" />
+                    </g>
+                    <g class="leg leg-r">
+                      <rect x="98" y="204" width="20" height="36" rx="8" />
+                      <rect class="foot" x="94" y="234" width="32" height="10" rx="4" />
+                    </g>
+                  </svg>
+                  <div class="shadow"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fx" id="fx" aria-hidden="true"></div>
+      </section>
+
+      <aside class="console">
+        <p class="bubble" id="bubble" data-i18n="bubbleIdle">Я Q. Введите код и идите по лабиринту.</p>
+        <p class="room-kicker" id="room-kicker">01</p>
+        <h2 id="room-title">Загрузка</h2>
+        <p class="question" id="question"></p>
+        <p class="room-kicker" data-i18n="shop">ПОКУПКА</p>
+        <div class="shop">
+          <button type="button" id="spend-cut" data-i18n="cut">Убрать 2 ответа · 2 гайки</button>
+          <button type="button" id="spend-reveal" data-i18n="reveal">Верный ответ · 5 гаек</button>
+        </div>
+        <div class="answers" id="answers"></div>
+        <p class="feedback" id="feedback"></p>
+        <button type="button" id="restart" hidden data-i18n="restart">Сначала</button>
+        <p class="legend"><span class="swatch swatch-clear"></span> <span data-i18n="legendOpen">открыт</span> <span class="swatch swatch-seen"></span> <span data-i18n="legendSeen">были</span> <span class="swatch"></span> <span data-i18n="legendClosed">закрыт</span></p>
+        <div class="phones" id="phones">
+          <p class="room-kicker" data-i18n="phones">ПУЛЬТЫ</p>
+          <div class="phone-row">
+            <div>
+              <div class="qr" id="qr-1" aria-label="QR команды 1"></div>
+              <p id="link-1" data-i18n="team1">Команда 1</p>
+            </div>
+            <div>
+              <div class="qr" id="qr-2" aria-label="QR команды 2"></div>
+              <p id="link-2" data-i18n="team2">Команда 2</p>
+            </div>
+          </div>
+          <p class="phone-note" id="team-where">1 · 2</p>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="hint">
+      <span data-i18n="footerMove">WASD или стрелки — идти</span>
+      <span class="dot"></span>
+      <span data-i18n="footerPhones">Телефоны ходят и выбирают ответ. Вопрос виден на этом экране.</span>
+    </footer>
+    <script src="qrcode.min.js"></script>
+    <script src="i18n.js?v=2"></script>
+    <script src="questions.js?v=4"></script>
+    <script src="q.js?v=23"></script>
+  </body>
+</html>

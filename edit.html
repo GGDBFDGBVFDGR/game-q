@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Q — вопросы</title>
+    <link rel="stylesheet" href="style.css?v=21" />
+  </head>
+  <body class="editor-page" data-title-key="editorTitle">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Q</span>
+        <div>
+          <p class="brand-kicker" data-i18n="editorKicker">СВОЙ ЛАБИРИНТ</p>
+          <h1 data-i18n="editorTitle">Вопросы</h1>
+        </div>
+      </div>
+      <div class="lang-switch" role="group">
+        <button type="button" data-lang="ru">РУС</button>
+        <button type="button" data-lang="kk">ҚАЗ</button>
+      </div>
+      <a class="enter-link" href="/" data-i18n="backGame">К игре</a>
+    </header>
+    <main class="editor" id="editor">
+      <form class="editor-card login-card" id="open">
+        <p class="room-kicker" data-i18n="haveOwn">УЖЕ ЕСТЬ СВОЙ</p>
+        <label>
+          <span data-i18n="codeLabel">Код</span>
+          <input id="open-code" autocomplete="off" maxlength="6" required />
+        </label>
+        <button type="submit" data-i18n="open">Открыть</button>
+        <p class="note" id="open-note"></p>
+      </form>
+      <form id="bank">
+        <p class="play-code" id="play-code" hidden>
+          <span data-i18n="playCode">Код для игры</span> <b id="code-value"></b>
+        </p>
+        <p class="note" id="play-hint" data-i18n="editorHint">Любой может собрать лабиринт. После сохранения появится код. Его вводят, чтобы играть.</p>
+        <div class="editor-actions">
+          <button type="button" id="add-room" data-i18n="addQuestion">Добавить вопрос</button>
+          <button type="submit" id="save-rooms" data-i18n="saveNew">Сохранить и получить код</button>
+          <button type="button" id="new-maze" hidden data-i18n="newMaze">Создать другой</button>
+        </div>
+        <p class="note" id="room-count">5 из 5–15</p>
+        <p class="note" id="save-note"></p>
+        <div id="cards"></div>
+      </form>
+    </main>
+    <script src="i18n.js?v=2"></script>
+    <script src="edit.js?v=5"></script>
+  </body>
+</html>

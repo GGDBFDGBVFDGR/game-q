@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Пульт Q</title>
+    <link rel="stylesheet" href="control.css?v=5" />
+  </head>
+  <body>
+    <header class="bar">
+      <p class="team" id="team">Команда</p>
+      <div class="lang-switch" role="group">
+        <button type="button" data-lang="ru">РУС</button>
+        <button type="button" data-lang="kk">ҚАЗ</button>
+      </div>
+    </header>
+    <p class="prompt" id="prompt">Жду вопрос с экрана…</p>
+    <div class="choices" id="choices"></div>
+    <div class="shop">
+      <p class="shop-label" id="nuts">гайки 0</p>
+      <button type="button" id="buy-cut" disabled>−2 ответа · 2</button>
+      <button type="button" id="buy-reveal" disabled>верный · 5</button>
+    </div>
+    <div class="dpad" id="dpad">
+      <button type="button" data-dir="up" data-i18n-label="up" aria-label="Вверх">↑</button>
+      <button type="button" data-dir="left" data-i18n-label="left" aria-label="Влево">←</button>
+      <button type="button" data-dir="down" data-i18n-label="down" aria-label="Вниз">↓</button>
+      <button type="button" data-dir="right" data-i18n-label="right" aria-label="Вправо">→</button>
+    </div>
+    <p class="link" id="link">жду экран…</p>
+    <script src="i18n.js?v=2"></script>
+    <script src="control.js?v=7"></script>
+  </body>
+</html>
