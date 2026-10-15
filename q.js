@@ -413,7 +413,6 @@ function renderPanel(cell, pilot = focusPilot()) {
 
   const quiz = QUESTIONS[cell.quiz];
   const picked = pilot.picks.get(cell.quiz);
-  const gone = pilot.removed.get(cell.quiz) || new Set();
   const other = pilots.find((item) => item.id !== pilot.id);
   roomKicker.textContent = t("teamQuestion", { id: pilot.id, n: String(cell.quiz + 1).padStart(2, "0") });
   roomTitle.textContent = quiz.title;
@@ -431,15 +430,7 @@ function renderPanel(cell, pilot = focusPilot()) {
     button.type = "button";
     button.textContent = `${index + 1}. ${choice}`;
     const answered = picked !== undefined;
-    if (gone.has(index)) {
-      button.disabled = true;
-      button.classList.add("is-cut");
-      button.textContent = `${index + 1}. ${t("hidden")}`;
-    } else {
-      button.disabled = answered || pilot.done || pilot.cheering;
-    }
-    if ((answered || pilot.revealed.has(cell.quiz)) && index === quiz.answer) button.classList.add("is-correct");
-    if (answered && index === picked && index !== quiz.answer) button.classList.add("is-wrong");
+    button.disabled = answered || pilot.done || pilot.cheering;
     button.addEventListener("click", () => choose(cell, index, button, pilot.id));
     answers.appendChild(button);
   });
@@ -730,6 +721,7 @@ function packQuestion(pilot) {
   }));
   payload.cutOk = !answered && !pilot.cheering && purse >= CUT_COST && wrongLeft(cell, pilot) > 0 && !pilot.revealed.has(cell.quiz);
   payload.revealOk = !answered && !pilot.cheering && purse >= REVEAL_COST && !pilot.revealed.has(cell.quiz);
+  payload.reveal = !answered && pilot.revealed.has(cell.quiz) ? quiz.answer : null;
   return payload;
 }
 
@@ -786,7 +778,7 @@ function choose(cell, index, button, team) {
   if (ok) pilot.correctCount += 1;
   else purse = Math.max(0, purse - PENALTY);
   pilot.passed.add(cell.id);
-  if (button) button.classList.add(ok ? "is-correct" : "is-wrong");
+  if (button) button.disabled = true;
   paintDoors();
   setProgress();
   if (focusTeam === pilot.id) {

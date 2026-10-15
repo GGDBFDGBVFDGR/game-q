@@ -91,6 +91,12 @@ body.team-2 {
   opacity: 0.4;
 }
 
+.choices button.is-correct {
+  opacity: 1;
+  border-color: #5eead4;
+  color: #b8fff3;
+}
+
 .shop {
   display: grid;
   grid-template-columns: auto 1fr 1fr;

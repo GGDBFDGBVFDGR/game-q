@@ -89,6 +89,7 @@ function paintQuestion(data, force) {
     button.type = "button";
     button.textContent = `${choice.index + 1}. ${choice.text}`;
     button.disabled = Boolean(data.answered || choice.cut);
+    if (!choice.cut && data.reveal === choice.index) button.classList.add("is-correct");
     button.addEventListener("click", () => {
       if (button.disabled || data.quiz === null || data.quiz === undefined) return;
       button.disabled = true;
