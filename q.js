@@ -39,6 +39,7 @@ function blankLog() {
     removed: new Map(),
     revealed: new Set(),
     correctCount: 0,
+    finishedAt: 0,
     cheering: false,
     done: false,
   };
@@ -122,32 +123,32 @@ function prepareLayout() {
     kind: "quiz",
     quiz: index,
   }));
-  const occupied = new Set(CELLS.map((cell) => `${cell.x},${cell.y}`));
   PATH = CELLS.slice(0, -1).map((cell) => [cell.id, cell.id + 1]);
-  const openHost = CELLS[4];
-  const openSpot = openHost ? neighborSpot(openHost, occupied) : null;
-  if (openSpot) {
-    const secret = { id: CELLS.length + 1, x: openSpot.x, y: openSpot.y, kind: "secret", quiz: null, chest: "open", reward: 8 };
-    CELLS.push(secret);
-    occupied.add(`${openSpot.x},${openSpot.y}`);
-    PATH.push([openHost.id, secret.id]);
-  }
-  if (count >= 10) {
-    const host = CELLS[Math.min(12, count - 1)];
-    const spot = neighborSpot(host, occupied);
-    if (spot) {
-      const secret = { id: CELLS.length + 1, x: spot.x, y: spot.y, kind: "secret", quiz: null, chest: "locked", reward: 12 };
-      CELLS.push(secret);
-      PATH.push([host.id, secret.id]);
-    }
-  }
+  placeSecret(CELLS[Math.min(4, count - 1)], "open", 8);
+  const lockHost = CELLS[Math.min(count >= 10 ? 12 : count - 1, count - 1)];
+  if (!placeSecret(lockHost, "locked", 12)) placeSecret(CELLS[count - 1], "locked", 12);
   MAZE_W = PAD * 2 + Math.max(...CELLS.map((cell) => cell.x)) * PITCH + ROOM;
   MAZE_H = PAD * 2 + Math.max(...CELLS.map((cell) => cell.y)) * PITCH + ROOM;
   byId = new Map(CELLS.map((cell) => [cell.id, cell]));
 }
 
+function placeSecret(host, chest, reward) {
+  if (!host) return false;
+  const occupied = new Set(CELLS.map((cell) => `${cell.x},${cell.y}`));
+  const spot = neighborSpot(host, occupied);
+  if (!spot) return false;
+  const secret = { id: CELLS.length + 1, x: spot.x, y: spot.y, kind: "secret", quiz: null, chest, reward };
+  CELLS.push(secret);
+  PATH.push([host.id, secret.id]);
+  return true;
+}
+
 function roomHasKey(cell) {
-  return QUESTIONS.length >= 10 && (cell.id === 4 || cell.id === 10);
+  if (cell.kind !== "quiz" || !CELLS.some((item) => item.chest === "locked")) return false;
+  if (QUESTIONS.length >= 10) return cell.id === 4 || cell.id === 10;
+  const quizzes = CELLS.filter((item) => item.kind === "quiz");
+  const host = quizzes[Math.min(3, Math.max(0, quizzes.length - 2))];
+  return Boolean(host) && cell.id === host.id;
 }
 const passed = new Set();
 const seen = new Set();
@@ -305,7 +306,7 @@ function buildMaze() {
         spots.push({ x: nutX, y: nutY });
       }
       spots.forEach((spot) => addCoin(cell.id, spot.x, spot.y));
-      if (roomHasKey(cell)) addKey(cell.id, rect.x + rect.w / 2, rect.y + 28);
+      if (roomHasKey(cell)) addKey(cell.id, rect.x + 36, rect.y + rect.h * 0.62);
     }
     if (cell.kind === "secret") addChest(cell, rect);
   });
@@ -377,6 +378,7 @@ function setProgress() {
   purseLabel.textContent = t("nuts", { n: purse });
   keyLabel.textContent = t("keys", { n: keyCount });
   progress.textContent = `1 ${pilots[0].correctCount}/${QUESTIONS.length} · 2 ${pilots[1].correctCount}/${QUESTIONS.length}`;
+  paintRating();
   paintShop();
   publishQuestions();
 }
@@ -424,14 +426,19 @@ function renderPanel(cell, pilot = focusPilot()) {
   } else {
     feedback.textContent = pilot.results.get(cell.quiz) ? t("teamCorrect", { id: pilot.id }) : t("teamWrongNow", { id: pilot.id, n: purse });
   }
+  const gone = pilot.removed.get(cell.quiz) || new Set();
   answers.replaceChildren();
   quiz.choices.forEach((choice, index) => {
+    const cut = gone.has(index);
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${index + 1}. ${choice}`;
+    button.textContent = `${index + 1}. ${cut ? t("hidden") : choice}`;
     const answered = picked !== undefined;
-    button.disabled = answered || pilot.done || pilot.cheering;
-    button.addEventListener("click", () => choose(cell, index, button, pilot.id));
+    button.disabled = answered || pilot.done || pilot.cheering || cut;
+    if (cut) button.classList.add("is-cut");
+    button.addEventListener("click", () => {
+      if (!cut) choose(cell, index, button, pilot.id);
+    });
     answers.appendChild(button);
   });
   paintShop();
@@ -569,6 +576,12 @@ function spendCutAnswers(teamId) {
   const wrong = QUESTIONS[cell.quiz].choices
     .map((_, index) => index)
     .filter((index) => index !== QUESTIONS[cell.quiz].answer && !gone.has(index));
+  for (let i = wrong.length - 1; i > 0; i -= 1) {
+    const swap = Math.floor(Math.random() * (i + 1));
+    const hold = wrong[i];
+    wrong[i] = wrong[swap];
+    wrong[swap] = hold;
+  }
   wrong.slice(0, 2).forEach((index) => gone.add(index));
   pilot.removed.set(cell.quiz, gone);
   purse -= CUT_COST;
@@ -823,6 +836,8 @@ function choose(cell, index, button, team) {
   const here = roomAt(pilot.x, pilot.y);
   if (!here || here.id !== cell.id) return;
   const quiz = QUESTIONS[cell.quiz];
+  const gone = pilot.removed.get(cell.quiz);
+  if (gone && gone.has(index)) return;
   const ok = index === quiz.answer;
   pilot.picks.set(cell.quiz, index);
   pilot.results.set(cell.quiz, ok);
@@ -889,8 +904,54 @@ function burstOil(target) {
   }
 }
 
+function mistakeCount(pilot) {
+  let bad = 0;
+  pilot.results.forEach((ok) => {
+    if (!ok) bad += 1;
+  });
+  return bad;
+}
+
+function rankedPilots() {
+  return [...pilots].sort((a, b) => {
+    const byMistakes = mistakeCount(a) - mistakeCount(b);
+    if (byMistakes) return byMistakes;
+    if (a.finishedAt && b.finishedAt && a.finishedAt !== b.finishedAt) return a.finishedAt - b.finishedAt;
+    if (Boolean(a.finishedAt) !== Boolean(b.finishedAt)) return a.finishedAt ? -1 : 1;
+    return Number(a.id) - Number(b.id);
+  });
+}
+
+function paintRating() {
+  const board = document.getElementById("rating");
+  if (!board) return;
+  const ranked = rankedPilots();
+  const both = pilots.every((item) => item.done);
+  board.hidden = false;
+  board.replaceChildren();
+  const title = document.createElement("p");
+  title.className = "room-kicker";
+  title.textContent = t("rating");
+  board.appendChild(title);
+  ranked.forEach((pilot, index) => {
+    const row = document.createElement("p");
+    row.textContent = t("ratingRow", {
+      place: index + 1,
+      id: pilot.id,
+      ok: pilot.correctCount,
+      bad: mistakeCount(pilot),
+    });
+    if (both && index === 0) {
+      row.classList.add("is-winner");
+      row.textContent += ` · ${t("ratingWin")}`;
+    }
+    board.appendChild(row);
+  });
+}
+
 function finishPilot(pilot) {
   pilot.done = true;
+  if (!pilot.finishedAt) pilot.finishedAt = Date.now();
   pilot.cheering = false;
   pilot.moving = false;
   pilot.el.classList.remove("walking", "is-cheering");
@@ -917,9 +978,13 @@ function finishPilot(pilot) {
   }
   bubble.textContent = roomSpeech;
   feedback.textContent = t("finaleCount", { id: pilot.id, n: pilot.correctCount, total: QUESTIONS.length });
+  paintRating();
   if (pilots.every((item) => item.done)) {
     ended = true;
     restart.hidden = false;
+    const winner = rankedPilots()[0];
+    roomSpeech = t("ratingWinner", { id: winner.id, bad: mistakeCount(winner) });
+    bubble.textContent = roomSpeech;
   }
 }
 
@@ -1023,8 +1088,8 @@ window.addEventListener("keyup", (event) => {
 
 window.addEventListener("resize", updateCamera);
 restart.addEventListener("click", resetRun);
-spendCut.addEventListener("click", spendCutAnswers);
-spendReveal.addEventListener("click", spendRevealAnswer);
+spendCut.addEventListener("click", () => spendCutAnswers(focusTeam));
+spendReveal.addEventListener("click", () => spendRevealAnswer(focusTeam));
 
 function movePilot(pilot, dx, dy, dt) {
   const length = Math.hypot(dx, dy) || 1;

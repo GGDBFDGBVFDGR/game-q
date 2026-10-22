@@ -303,6 +303,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "purse": int(item.get("purse") or 0),
                     "cutOk": bool(item.get("cutOk")),
                     "revealOk": bool(item.get("revealOk")),
+                    "reveal": item.get("reveal") if isinstance(item.get("reveal"), int) and not isinstance(item.get("reveal"), bool) else None,
                 }
             self._json({"ok": True})
             return

@@ -429,6 +429,7 @@
           purse: Number(item.purse) || 0,
           cutOk: Boolean(item.cutOk),
           revealOk: Boolean(item.revealOk),
+          reveal: Number.isInteger(item.reveal) ? item.reveal : null,
         };
       });
       run.question = next;
