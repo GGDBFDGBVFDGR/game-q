@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Q — лабиринт</title>
-    <link rel="stylesheet" href="style.css?v=24" />
+    <link rel="stylesheet" href="style.css?v=26" />
   </head>
   <body data-title-key="titleGame">
     <form class="gate" id="gate">
@@ -21,7 +21,7 @@
           <input id="game-code" autocomplete="off" maxlength="6" required />
         </label>
         <button type="submit" data-i18n="play">Играть</button>
-        <button type="button" class="sound-btn" data-sound data-i18n="sound">ЗВУК</button>
+        <button type="button" class="sound-btn" data-sound data-i18n="sound" aria-pressed="false">ЗВУК ВЫКЛ</button>
         <p class="note" id="gate-note"></p>
         <a class="enter-link" href="edit.html" data-i18n="buildOwn">Собрать свой</a>
       </section>
@@ -44,7 +44,7 @@
         <p class="status" id="progress">1 0/15 · 2 0/15</p>
         <p class="status" id="status">01</p>
         <a class="enter-link" href="edit.html" data-i18n="ownMaze">Свой лабиринт</a>
-        <button type="button" class="sound-btn" data-sound data-i18n="sound">ЗВУК</button>
+        <button type="button" class="sound-btn" data-sound data-i18n="sound" aria-pressed="false">ЗВУК ВЫКЛ</button>
         <div class="lang-switch" role="group">
           <button type="button" data-lang="ru">РУС</button>
           <button type="button" data-lang="kk">ҚАЗ</button>
@@ -177,9 +177,9 @@
       <span data-i18n="footerPhones">Телефоны ходят и выбирают ответ. Вопрос виден на этом экране.</span>
     </footer>
     <script src="qrcode.min.js"></script>
-    <script src="i18n.js?v=6"></script>
-    <script src="questions.js?v=6"></script>
+    <script src="i18n.js?v=8"></script>
+    <script src="questions.js?v=8"></script>
     <script src="pages-api.js?v=6"></script>
-    <script src="q.js?v=29"></script>
+    <script src="q.js?v=34"></script>
   </body>
 </html>

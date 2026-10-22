@@ -125,11 +125,26 @@ function prepareLayout() {
   }));
   PATH = CELLS.slice(0, -1).map((cell) => [cell.id, cell.id + 1]);
   placeSecret(CELLS[Math.min(4, count - 1)], "open", 8);
-  const lockHost = CELLS[Math.min(count >= 10 ? 12 : count - 1, count - 1)];
-  if (!placeSecret(lockHost, "locked", 12)) placeSecret(CELLS[count - 1], "locked", 12);
+  placeLockedChest();
+  assignKeyRooms();
   MAZE_W = PAD * 2 + Math.max(...CELLS.map((cell) => cell.x)) * PITCH + ROOM;
   MAZE_H = PAD * 2 + Math.max(...CELLS.map((cell) => cell.y)) * PITCH + ROOM;
   byId = new Map(CELLS.map((cell) => [cell.id, cell]));
+}
+
+function placeLockedChest() {
+  const quizzes = CELLS.filter((cell) => cell.kind === "quiz");
+  const count = quizzes.length;
+  const openHost = Math.min(4, count - 1);
+  const last = count - 1;
+  const order = [];
+  [2, 6, 1, 3, 5, 7, 8, 0, 9, 10, 11].forEach((index) => {
+    if (index !== openHost && index !== last && index < count) order.push(index);
+  });
+  for (let index = 0; index < last; index += 1) {
+    if (index !== openHost && !order.includes(index)) order.push(index);
+  }
+  return order.some((index) => placeSecret(quizzes[index], "locked", 12));
 }
 
 function placeSecret(host, chest, reward) {
@@ -143,12 +158,25 @@ function placeSecret(host, chest, reward) {
   return true;
 }
 
-function roomHasKey(cell) {
-  if (cell.kind !== "quiz" || !CELLS.some((item) => item.chest === "locked")) return false;
-  if (QUESTIONS.length >= 10) return cell.id === 4 || cell.id === 10;
+let keyRooms = new Set();
+
+function assignKeyRooms() {
+  const need = CELLS.filter((item) => item.chest === "locked").length;
   const quizzes = CELLS.filter((item) => item.kind === "quiz");
-  const host = quizzes[Math.min(3, Math.max(0, quizzes.length - 2))];
-  return Boolean(host) && cell.id === host.id;
+  const picked = [];
+  [1, 4, 7, 10, 2, 6, 9, 13, 3, 5, 8, 11, 12, 14, 15].forEach((id) => {
+    if (picked.length >= need) return;
+    if (quizzes.some((cell) => cell.id === id)) picked.push(id);
+  });
+  quizzes.forEach((cell) => {
+    if (picked.length >= need) return;
+    if (!picked.includes(cell.id)) picked.push(cell.id);
+  });
+  keyRooms = new Set(picked);
+}
+
+function roomHasKey(cell) {
+  return cell.kind === "quiz" && keyRooms.has(cell.id);
 }
 const passed = new Set();
 const seen = new Set();
@@ -300,13 +328,13 @@ function buildMaze() {
         const nutX = rect.x + 18 + Math.random() * (rect.w - 36);
         const nutY = rect.y + 18 + Math.random() * (rect.h - 36);
         const onRobot = Math.hypot(nutX - centerX, nutY - centerY) < 28;
-        const onKey = roomHasKey(cell) && Math.hypot(nutX - centerX, nutY - (rect.y + 28)) < 22;
+        const onKey = roomHasKey(cell) && nutX < rect.x + 78 && nutY > rect.y + rect.h - 52;
         const crowded = spots.some((spot) => Math.hypot(spot.x - nutX, spot.y - nutY) < 30);
         if (onRobot || onKey || crowded) continue;
         spots.push({ x: nutX, y: nutY });
       }
       spots.forEach((spot) => addCoin(cell.id, spot.x, spot.y));
-      if (roomHasKey(cell)) addKey(cell.id, rect.x + 36, rect.y + rect.h * 0.62);
+      if (roomHasKey(cell)) addKey(cell.id, rect.x + 16, rect.y + rect.h - 34);
     }
     if (cell.kind === "secret") addChest(cell, rect);
   });
@@ -315,6 +343,7 @@ function buildMaze() {
 function addKey(roomId, keyX, keyY) {
   const el = document.createElement("div");
   el.className = "key";
+  el.textContent = t("keyTag");
   el.style.left = `${keyX}px`;
   el.style.top = `${keyY}px`;
   maze.insertBefore(el, robot);
@@ -400,12 +429,10 @@ function renderPanel(cell, pilot = focusPilot()) {
   if (cell.kind === "secret") {
     const chest = chests.find((item) => item.roomId === cell.id);
     roomKicker.textContent = t("teamSecret", { id: pilot.id });
-    roomTitle.textContent = cell.chest === "locked" ? t("chestLocked") : t("chest");
-    question.textContent = chest && chest.opened
-      ? t("chestOpened")
-      : cell.chest === "locked"
-        ? t("chestNeedKey")
-        : t("chestWalk");
+    const opened = Boolean(chest && chest.opened);
+    const locked = Boolean(chest && chest.locked);
+    roomTitle.textContent = opened ? t("chest") : locked ? t("chestLocked") : t("chest");
+    question.textContent = opened ? t("chestOpened") : locked ? t("chestNeedKey") : t("chestWalk");
     answers.replaceChildren();
     feedback.textContent = "";
     paintShop();
@@ -451,7 +478,8 @@ function enter(cell, pilot = focusPilot()) {
   seen.add(cell.id);
   const other = pilots.find((item) => item.id !== pilot.id);
   if (cell.kind === "secret") {
-    roomSpeech = cell.chest === "locked" ? t("secretLocked") : t("secretOpen");
+    const chest = chests.find((item) => item.roomId === cell.id);
+    roomSpeech = chest && chest.opened ? t("chestOpened") : chest && chest.locked ? t("secretLocked") : t("chestWalk");
   } else if (pilot.picks.has(cell.quiz)) {
     roomSpeech = pilot.results.get(cell.quiz)
       ? t("alreadyRight", { id: pilot.id })
@@ -538,6 +566,7 @@ function collectCoins() {
     item.taken = true;
     item.el.classList.add("is-taken");
     keyCount += 1;
+    playKey();
     roomSpeech = t("keyFound", { n: keyCount });
     bubble.textContent = roomSpeech;
     setProgress();
@@ -550,14 +579,13 @@ function collectCoins() {
       bubble.textContent = roomSpeech;
       return;
     }
-    const wasLocked = chest.locked;
-    if (wasLocked) keyCount -= 1;
+    if (chest.locked) keyCount -= 1;
     chest.opened = true;
     chest.locked = false;
     chest.el.classList.remove("is-locked");
     chest.el.classList.add("is-open");
     purse += chest.reward;
-    roomSpeech = wasLocked
+    roomSpeech = chest.originalLocked
       ? t("chestKeyOk", { n: chest.reward, word: nutsWord(chest.reward) })
       : t("chestReward", { n: chest.reward, word: nutsWord(chest.reward) });
     bubble.textContent = roomSpeech;
@@ -605,6 +633,7 @@ function spendRevealAnswer(teamId) {
 }
 
 let soundReady = false;
+let soundTouched = false;
 
 function audio() {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -616,7 +645,6 @@ function audio() {
       return null;
     }
   }
-  if (audio.ctx.state === "suspended") audio.ctx.resume().catch(() => {});
   return audio.ctx;
 }
 
@@ -624,6 +652,7 @@ function markSound(on) {
   soundReady = on;
   document.querySelectorAll("[data-sound]").forEach((button) => {
     button.classList.toggle("is-on", on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
     button.dataset.i18n = on ? "soundOn" : "sound";
     button.textContent = t(button.dataset.i18n);
   });
@@ -634,42 +663,62 @@ function markSound(on) {
 function unlockAudio(beep) {
   const ctx = audio();
   if (!ctx) return;
-  try {
-    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.connect(ctx.destination);
-    src.start();
-  } catch (error) {
-    return;
-  }
-  if (beep) {
-    tone(523, 0, 0.18, "square", 0.24);
-    tone(659, 0.18, 0.18, "square", 0.24);
-    tone(784, 0.36, 0.34, "triangle", 0.2);
-  }
-  const done = () => {
-    if (ctx.state === "running") markSound(true);
+  const start = () => {
+    if (ctx.state !== "running") return;
+    markSound(true);
+    if (!beep) return;
+    tone(523, 0, 0.4, "square", 0.42);
+    tone(659, 0.16, 0.4, "square", 0.38);
+    tone(784, 0.32, 0.55, "triangle", 0.34);
   };
-  if (ctx.state === "running") done();
-  else ctx.resume().then(done).catch(() => {});
+  const ready = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+  ready.then(start).catch(() => {});
 }
 
-function tone(freq, start, dur, type = "square", volume = 0.22) {
+function toggleSound() {
+  soundTouched = true;
+  if (soundReady) {
+    markSound(false);
+    if (audio.ctx && audio.ctx.state === "running") audio.ctx.suspend().catch(() => {});
+    return;
+  }
+  unlockAudio(true);
+}
+
+function tone(freq, start, dur, type = "square", volume = 0.28) {
+  if (!soundReady) return;
   const ctx = audio();
-  if (!ctx) return;
+  if (!ctx || ctx.state !== "running") return;
   try {
     const osc = ctx.createOscillator();
     const amp = ctx.createGain();
+    const when = ctx.currentTime + start;
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-    amp.gain.setValueAtTime(volume, ctx.currentTime + start);
-    amp.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+    osc.frequency.setValueAtTime(freq, when);
+    amp.gain.setValueAtTime(volume, when);
+    amp.gain.linearRampToValueAtTime(0.001, when + dur);
     osc.connect(amp);
     amp.connect(ctx.destination);
-    osc.start(ctx.currentTime + start);
-    osc.stop(ctx.currentTime + start + dur + 0.02);
+    osc.start(when);
+    osc.stop(when + dur + 0.02);
   } catch (error) {}
+}
+
+let stepAt = 0;
+
+function playStep() {
+  if (!soundReady) return;
+  const now = performance.now();
+  if (now - stepAt < 260) return;
+  stepAt = now;
+  tone(160, 0, 0.06, "square", 0.16);
+  tone(90, 0.04, 0.07, "triangle", 0.12);
+}
+
+function playKey() {
+  if (!soundReady) return;
+  tone(880, 0, 0.14, "square", 0.34);
+  tone(1174, 0.12, 0.22, "triangle", 0.3);
 }
 
 function playCheer() {
@@ -706,8 +755,9 @@ function playWin() {
 }
 
 function playSplat() {
+  if (!soundReady) return;
   const ctx = audio();
-  if (!ctx) return;
+  if (!ctx || ctx.state !== "running") return;
   try {
     const length = Math.floor(ctx.sampleRate * 0.28);
     const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
@@ -1177,6 +1227,7 @@ function frame(now) {
     if (pilotDir(pilot, "down")) dy += 1;
     pilot.moving = dx !== 0 || dy !== 0;
     if (pilot.moving) {
+      playStep();
       const hit = movePilot(pilot, dx, dy, dt);
       if (hit) blocked = hit === "door" ? t("doorBlock", { id: pilot.id }) : t("wallBlock", { id: pilot.id });
       if (dx < 0) pilot.facing = -1;
@@ -1252,7 +1303,7 @@ async function bootGame() {
   window.setInterval(pollPads, 80);
   prepareLayout();
   const soundGate = document.getElementById("sound-gate");
-  if (soundGate && !soundReady) soundGate.hidden = false;
+  if (soundGate && !soundReady && !soundTouched) soundGate.hidden = false;
   const kicker = document.querySelector(".brand-kicker");
   if (kicker) kicker.textContent = `${GAME} · ${QUESTIONS.length} ${t("sectors")}`;
   buildMaze();
@@ -1290,14 +1341,18 @@ async function enterGame(raw) {
 
 gate.addEventListener("submit", (event) => {
   event.preventDefault();
-  unlockAudio(true);
+  if (!soundTouched) unlockAudio(true);
   enterGame(gameCodeInput.value);
 });
 
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-sound], #sound-gate");
-  if (!button) return;
-  unlockAudio(true);
+  if (event.target.closest("#sound-gate")) {
+    soundTouched = true;
+    unlockAudio(true);
+    return;
+  }
+  if (!event.target.closest("[data-sound]")) return;
+  toggleSound();
 });
 
 window.addEventListener("q-lang", () => markSound(soundReady));
@@ -1311,6 +1366,9 @@ if (preset) {
 window.addEventListener("q-lang", () => {
   document.querySelectorAll(".room.is-secret .room-code").forEach((el) => {
     el.textContent = t("chestTag");
+  });
+  document.querySelectorAll(".key").forEach((el) => {
+    el.textContent = t("keyTag");
   });
   if (!GAME || !CELLS.length) {
     purseLabel.textContent = t("nuts", { n: purse });

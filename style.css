@@ -440,24 +440,24 @@ body {
 }
 
 .key {
-  width: 22px;
-  height: 9px;
-  margin-left: -11px;
-  margin-top: -5px;
-  border-radius: 2px;
+  z-index: 8;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 4px;
   background: #7ee0ff;
-  box-shadow: 0 0 8px rgba(126, 224, 255, 0.8);
+  color: #041016;
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  box-shadow: 0 0 16px rgba(126, 224, 255, 0.95);
+  animation: key-pulse 0.9s ease-in-out infinite;
 }
 
-.key::after {
-  content: "";
-  position: absolute;
-  top: -4px;
-  right: -1px;
-  width: 7px;
-  height: 7px;
-  border: 2px solid #7ee0ff;
-  border-radius: 50%;
+@keyframes key-pulse {
+  50% {
+    transform: scale(1.12);
+  }
 }
 
 .key.is-taken,
@@ -480,12 +480,18 @@ body {
   position: absolute;
   left: 2px;
   right: 2px;
-  top: -7px;
-  height: 8px;
+  top: 0;
+  height: 9px;
   border: 2px solid #f5c16c;
-  border-bottom: 0;
   border-radius: 4px 4px 0 0;
   background: #c9842a;
+}
+
+.chest.is-open::before {
+  top: -11px;
+  border-bottom: 0;
+  transform: rotate(-18deg);
+  transform-origin: 2px 9px;
 }
 
 .chest.is-locked::after {

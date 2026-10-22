@@ -298,6 +298,7 @@
     const starter = bank("ROOMS");
     const security = bank("SECURITY");
     const labs = bank("LABS");
+    const net5 = bank("NET5");
     if (!games.QSTART && starter) {
       const rooms = normalize(starter);
       if (rooms) {
@@ -312,10 +313,27 @@
         changed = true;
       }
     }
+    const oldSecurity = games.RQHJQ5 && games.RQHJQ5.rooms;
+    const moved = oldSecurity && oldSecurity.length === 10
+      && ["VPN", "MOVE", "LOG"].every((code, index) => oldSecurity[7 + index] && oldSecurity[7 + index].code === code);
+    if (moved) {
+      const rooms = normalize(oldSecurity.slice(0, 7));
+      if (rooms) {
+        games.RQHJQ5 = { rooms };
+        changed = true;
+      }
+    }
     if (!games.LABQAZ && labs) {
       const rooms = normalize(labs);
       if (rooms) {
         games.LABQAZ = { rooms };
+        changed = true;
+      }
+    }
+    if (!games.NET5AZ && net5) {
+      const rooms = normalize(net5);
+      if (rooms) {
+        games.NET5AZ = { rooms };
         changed = true;
       }
     }
