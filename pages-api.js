@@ -297,6 +297,7 @@
     let changed = false;
     const starter = bank("ROOMS");
     const security = bank("SECURITY");
+    const labs = bank("LABS");
     if (!games.QSTART && starter) {
       const rooms = normalize(starter);
       if (rooms) {
@@ -308,6 +309,13 @@
       const rooms = normalize(security);
       if (rooms) {
         games.RQHJQ5 = { rooms };
+        changed = true;
+      }
+    }
+    if (!games.LABQAZ && labs) {
+      const rooms = normalize(labs);
+      if (rooms) {
+        games.LABQAZ = { rooms };
         changed = true;
       }
     }
