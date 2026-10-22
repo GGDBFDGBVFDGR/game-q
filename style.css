@@ -1578,6 +1578,21 @@ body {
   color: var(--mint);
 }
 
+.sound-btn {
+  border: 1px solid rgba(94, 234, 212, 0.35);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.sound-btn.is-on {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
 .editor-page {
   display: block;
   min-height: 100%;

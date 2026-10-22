@@ -591,24 +591,70 @@ function spendRevealAnswer(teamId) {
   else setProgress();
 }
 
+let soundReady = false;
+
 function audio() {
-  if (!audio.ctx) audio.ctx = new AudioContext();
-  if (audio.ctx.state === "suspended") audio.ctx.resume();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!audio.ctx) {
+    try {
+      audio.ctx = new AudioCtx();
+    } catch (error) {
+      return null;
+    }
+  }
+  if (audio.ctx.state === "suspended") audio.ctx.resume().catch(() => {});
   return audio.ctx;
+}
+
+function markSound(on) {
+  soundReady = on;
+  document.querySelectorAll("[data-sound]").forEach((button) => {
+    button.classList.toggle("is-on", on);
+    button.dataset.i18n = on ? "soundOn" : "sound";
+    button.textContent = t(button.dataset.i18n);
+  });
+}
+
+function unlockAudio(beep) {
+  const ctx = audio();
+  if (!ctx) return;
+  try {
+    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.start();
+  } catch (error) {
+    return;
+  }
+  if (beep) {
+    tone(523, 0, 0.08);
+    tone(659, 0.1, 0.12);
+    tone(784, 0.22, 0.16, "triangle", 0.06);
+  }
+  const done = () => {
+    if (ctx.state === "running") markSound(true);
+  };
+  if (ctx.state === "running") done();
+  else ctx.resume().then(done).catch(() => {});
 }
 
 function tone(freq, start, dur, type = "square", volume = 0.07) {
   const ctx = audio();
-  const osc = ctx.createOscillator();
-  const amp = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-  amp.gain.setValueAtTime(volume, ctx.currentTime + start);
-  amp.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-  osc.connect(amp);
-  amp.connect(ctx.destination);
-  osc.start(ctx.currentTime + start);
-  osc.stop(ctx.currentTime + start + dur + 0.02);
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+    amp.gain.setValueAtTime(volume, ctx.currentTime + start);
+    amp.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+    osc.connect(amp);
+    amp.connect(ctx.destination);
+    osc.start(ctx.currentTime + start);
+    osc.stop(ctx.currentTime + start + dur + 0.02);
+  } catch (error) {}
 }
 
 function playCheer() {
@@ -646,23 +692,26 @@ function playWin() {
 
 function playSplat() {
   const ctx = audio();
-  const length = Math.floor(ctx.sampleRate * 0.28);
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2;
-  const src = ctx.createBufferSource();
-  const filter = ctx.createBiquadFilter();
-  const amp = ctx.createGain();
-  src.buffer = buffer;
-  filter.type = "lowpass";
-  filter.frequency.setValueAtTime(900, ctx.currentTime);
-  filter.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.26);
-  amp.gain.setValueAtTime(0.45, ctx.currentTime);
-  amp.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-  src.connect(filter);
-  filter.connect(amp);
-  amp.connect(ctx.destination);
-  src.start();
+  if (!ctx) return;
+  try {
+    const length = Math.floor(ctx.sampleRate * 0.28);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2;
+    const src = ctx.createBufferSource();
+    const filter = ctx.createBiquadFilter();
+    const amp = ctx.createGain();
+    src.buffer = buffer;
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(900, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.26);
+    amp.gain.setValueAtTime(0.45, ctx.currentTime);
+    amp.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    src.connect(filter);
+    filter.connect(amp);
+    amp.connect(ctx.destination);
+    src.start();
+  } catch (error) {}
   tone(90, 0, 0.18, "sine", 0.12);
   tone(140, 0.04, 0.12, "triangle", 0.06);
 }
@@ -1172,8 +1221,23 @@ async function enterGame(raw) {
 
 gate.addEventListener("submit", (event) => {
   event.preventDefault();
+  unlockAudio(true);
   enterGame(gameCodeInput.value);
 });
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-sound]");
+  if (!button) return;
+  unlockAudio(true);
+});
+
+window.addEventListener("pointerdown", () => {
+  if (!soundReady) unlockAudio(false);
+});
+window.addEventListener("keydown", () => {
+  if (!soundReady) unlockAudio(false);
+});
+window.addEventListener("q-lang", () => markSound(soundReady));
 
 const preset = new URLSearchParams(location.search).get("code");
 if (preset) {
