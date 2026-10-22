@@ -614,6 +614,8 @@ function markSound(on) {
     button.dataset.i18n = on ? "soundOn" : "sound";
     button.textContent = t(button.dataset.i18n);
   });
+  const banner = document.getElementById("sound-gate");
+  if (banner && on) banner.hidden = true;
 }
 
 function unlockAudio(beep) {
@@ -629,9 +631,9 @@ function unlockAudio(beep) {
     return;
   }
   if (beep) {
-    tone(523, 0, 0.08);
-    tone(659, 0.1, 0.12);
-    tone(784, 0.22, 0.16, "triangle", 0.06);
+    tone(523, 0, 0.18, "square", 0.24);
+    tone(659, 0.18, 0.18, "square", 0.24);
+    tone(784, 0.36, 0.34, "triangle", 0.2);
   }
   const done = () => {
     if (ctx.state === "running") markSound(true);
@@ -640,7 +642,7 @@ function unlockAudio(beep) {
   else ctx.resume().then(done).catch(() => {});
 }
 
-function tone(freq, start, dur, type = "square", volume = 0.07) {
+function tone(freq, start, dur, type = "square", volume = 0.22) {
   const ctx = audio();
   if (!ctx) return;
   try {
@@ -669,8 +671,8 @@ function playCheer() {
 }
 
 function playMiss() {
-  tone(196, 0, 0.16, "sawtooth", 0.05);
-  tone(146, 0.14, 0.22, "sawtooth", 0.05);
+  tone(196, 0, 0.16, "sawtooth", 0.16);
+  tone(146, 0.14, 0.22, "sawtooth", 0.16);
 }
 
 function playWin() {
@@ -717,9 +719,9 @@ function playSplat() {
 }
 
 function playFail() {
-  tone(220, 0, 0.2, "sawtooth", 0.05);
-  tone(174, 0.18, 0.2, "sawtooth", 0.05);
-  tone(130, 0.36, 0.3, "sawtooth", 0.05);
+  tone(220, 0, 0.2, "sawtooth", 0.16);
+  tone(174, 0.18, 0.2, "sawtooth", 0.16);
+  tone(130, 0.36, 0.3, "sawtooth", 0.16);
 }
 
 function cheer(pilot, done) {
@@ -1184,6 +1186,8 @@ async function bootGame() {
   pollPads();
   window.setInterval(pollPads, 80);
   prepareLayout();
+  const soundGate = document.getElementById("sound-gate");
+  if (soundGate && !soundReady) soundGate.hidden = false;
   const kicker = document.querySelector(".brand-kicker");
   if (kicker) kicker.textContent = `${GAME} · ${QUESTIONS.length} ${t("sectors")}`;
   buildMaze();
@@ -1226,17 +1230,11 @@ gate.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-sound]");
+  const button = event.target.closest("[data-sound], #sound-gate");
   if (!button) return;
   unlockAudio(true);
 });
 
-window.addEventListener("pointerdown", () => {
-  if (!soundReady) unlockAudio(false);
-});
-window.addEventListener("keydown", () => {
-  if (!soundReady) unlockAudio(false);
-});
 window.addEventListener("q-lang", () => markSound(soundReady));
 
 const preset = new URLSearchParams(location.search).get("code");

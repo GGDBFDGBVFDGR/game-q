@@ -1593,6 +1593,32 @@ body {
   color: var(--mint);
 }
 
+.sound-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  padding: 24px;
+  border: 0;
+  background: rgba(7, 11, 16, 0.92);
+  color: var(--mint);
+  font: inherit;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.sound-gate[hidden] {
+  display: none;
+}
+
+.sound-gate span:last-child {
+  font-size: 28px;
+  line-height: 1.35;
+}
+
 .editor-page {
   display: block;
   min-height: 100%;
