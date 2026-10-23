@@ -42,6 +42,7 @@ function blankLog() {
     finishedAt: 0,
     cheering: false,
     done: false,
+    keys: 0,
   };
 }
 
@@ -191,7 +192,6 @@ const revealed = new Set();
 const keys = new Set();
 
 let purse = 0;
-let keyCount = 0;
 let correctCount = 0;
 let activeId = 0;
 let facing = 1;
@@ -405,7 +405,7 @@ function nutsWord(count) {
 
 function setProgress() {
   purseLabel.textContent = t("nuts", { n: purse });
-  keyLabel.textContent = t("keys", { n: keyCount });
+  keyLabel.textContent = t("keys", { a: pilots[0].keys, b: pilots[1].keys });
   progress.textContent = `1 ${pilots[0].correctCount}/${QUESTIONS.length} · 2 ${pilots[1].correctCount}/${QUESTIONS.length}`;
   paintRating();
   paintShop();
@@ -513,6 +513,20 @@ function pilotNear(px, py, radius) {
   return pilots.some((pilot) => !pilot.cheering && !pilot.done && Math.hypot(pilot.x - px, pilot.y - py) <= radius);
 }
 
+function closestPilot(px, py, radius) {
+  let best = null;
+  let bestDist = Infinity;
+  pilots.forEach((pilot) => {
+    if (pilot.cheering || pilot.done) return;
+    const dist = Math.hypot(pilot.x - px, pilot.y - py);
+    if (dist <= radius && dist < bestDist) {
+      best = pilot;
+      bestDist = dist;
+    }
+  });
+  return best;
+}
+
 function focusQuestion(cell, pilot) {
   if (cell.kind === "quiz" && !pilot.picks.has(cell.quiz)) {
     enter(cell, pilot);
@@ -562,31 +576,42 @@ function collectCoins() {
     setProgress();
   }
   keyPickups.forEach((item) => {
-    if (item.taken || !pilotNear(item.x, item.y, 22)) return;
+    if (item.taken) return;
+    const pilot = closestPilot(item.x, item.y, 22);
+    if (!pilot) return;
     item.taken = true;
     item.el.classList.add("is-taken");
-    keyCount += 1;
+    pilot.keys += 1;
     playKey();
-    roomSpeech = t("keyFound", { n: keyCount });
+    roomSpeech = t("keyFound", { id: pilot.id, n: pilot.keys });
     bubble.textContent = roomSpeech;
     setProgress();
   });
 
   chests.forEach((chest) => {
-    if (chest.opened || !pilotNear(chest.x, chest.y, 28)) return;
-    if (chest.locked && keyCount < 1) {
-      roomSpeech = t("chestClosed");
+    if (chest.opened) return;
+    const pilot = closestPilot(chest.x, chest.y, 28);
+    if (!pilot) return;
+    const holder = chest.locked
+      ? pilots
+        .filter((item) => item.keys > 0 && !item.cheering && !item.done && Math.hypot(item.x - chest.x, item.y - chest.y) <= 28)
+        .sort((a, b) => Math.hypot(a.x - chest.x, a.y - chest.y) - Math.hypot(b.x - chest.x, b.y - chest.y))[0]
+      : pilot;
+    if (chest.locked && !holder) {
+      roomSpeech = pilots.some((item) => item.keys > 0)
+        ? t("chestWrongTeam", { id: pilot.id })
+        : t("chestClosed");
       bubble.textContent = roomSpeech;
       return;
     }
-    if (chest.locked) keyCount -= 1;
+    if (chest.locked) holder.keys -= 1;
     chest.opened = true;
     chest.locked = false;
     chest.el.classList.remove("is-locked");
     chest.el.classList.add("is-open");
     purse += chest.reward;
     roomSpeech = chest.originalLocked
-      ? t("chestKeyOk", { n: chest.reward, word: nutsWord(chest.reward) })
+      ? t("chestKeyOk", { id: holder.id, n: chest.reward, word: nutsWord(chest.reward) })
       : t("chestReward", { n: chest.reward, word: nutsWord(chest.reward) });
     bubble.textContent = roomSpeech;
     setProgress();
@@ -663,16 +688,29 @@ function markSound(on) {
 function unlockAudio(beep) {
   const ctx = audio();
   if (!ctx) return;
-  const start = () => {
-    if (ctx.state !== "running") return;
-    markSound(true);
-    if (!beep) return;
-    tone(523, 0, 0.4, "square", 0.42);
-    tone(659, 0.16, 0.4, "square", 0.38);
-    tone(784, 0.32, 0.55, "triangle", 0.34);
+  try {
+    const buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    src.start(0);
+  } catch (error) {}
+  if (ctx.state === "suspended") ctx.resume().catch(() => {});
+  markSound(true);
+  const chime = () => {
+    if (!beep || !soundReady || ctx.state !== "running") return false;
+    tone(523, 0, 0.45, "square", 0.5);
+    tone(659, 0.16, 0.45, "square", 0.46);
+    tone(784, 0.32, 0.6, "triangle", 0.42);
+    return true;
   };
-  const ready = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
-  ready.then(start).catch(() => {});
+  if (chime()) return;
+  const started = performance.now();
+  const wait = () => {
+    if (chime() || performance.now() - started > 1200) return;
+    requestAnimationFrame(wait);
+  };
+  requestAnimationFrame(wait);
 }
 
 function toggleSound() {
@@ -1048,7 +1086,6 @@ function resetRun() {
   revealed.clear();
   correctCount = 0;
   purse = 0;
-  keyCount = 0;
   keys.clear();
   focusTeam = "1";
   seenAnswer = 0;
@@ -1345,6 +1382,13 @@ gate.addEventListener("submit", (event) => {
   enterGame(gameCodeInput.value);
 });
 
+document.addEventListener("pointerdown", (event) => {
+  if (event.target.closest("[data-sound]")) return;
+  if (soundReady || soundTouched) return;
+  soundTouched = true;
+  unlockAudio(true);
+}, true);
+
 document.addEventListener("click", (event) => {
   if (event.target.closest("#sound-gate")) {
     soundTouched = true;
@@ -1372,7 +1416,7 @@ window.addEventListener("q-lang", () => {
   });
   if (!GAME || !CELLS.length) {
     purseLabel.textContent = t("nuts", { n: purse });
-    keyLabel.textContent = t("keys", { n: keyCount });
+    keyLabel.textContent = t("keys", { a: pilots[0].keys, b: pilots[1].keys });
     return;
   }
   const kicker = document.querySelector(".brand-kicker");

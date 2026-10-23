@@ -299,6 +299,7 @@
     const security = bank("SECURITY");
     const labs = bank("LABS");
     const net5 = bank("NET5");
+    const zone = bank("ZONE");
     if (!games.QSTART && starter) {
       const rooms = normalize(starter);
       if (rooms) {
@@ -334,6 +335,13 @@
       const rooms = normalize(net5);
       if (rooms) {
         games.NET5AZ = { rooms };
+        changed = true;
+      }
+    }
+    if (!games.LAB5QZ && zone) {
+      const rooms = normalize(zone);
+      if (rooms) {
+        games.LAB5QZ = { rooms };
         changed = true;
       }
     }
